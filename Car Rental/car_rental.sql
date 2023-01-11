@@ -1,0 +1,118 @@
+use car_rentals;
+SELECT * FROM car_rentals.rental;
+/* Q1) Insert the details of new customer:-
+First name : Nancy
+Last Name: Perry
+Dob : 1988-05-16
+License Number: K59042656E
+Email : nancy@gmail.com */
+
+INSERT INTO customer (first_name,last_name,dob,driver_license_number,email)
+VALUES ('Nancy','Perry','1988-05-16','K59042656E','nancy@gmail.com');
+
+/*Q2) The new customer (inserted above) wants to rent a car from 2020-08-25 to 2020-08-30. More details are as follows:
+Vehicle Type : Economy SUV
+Fuel Option : Market
+Pick Up location: 5150 W 55th St , Chicago, IL, zip- 60638
+Drop Location: 9217 Airport Blvd, Los Angeles, CA, zip - 90045
+ */
+ 
+ INSERT INTO rental (start_date,end_date,customer_id,vehicle_type_id,fuel_option_id,pickup_location_id,drop_off_location_id)
+ VALUES ('2020-08-25','2020-08-30', 6, (SELECT id FROM vehicle_type WHERE `name` = 'Economy SUV'),
+ (SELECT id FROM fuel_option WHERE `name` = 'Market'), (SELECT id FROM location WHERE city = 'Chicago'),
+(SELECT id FROM location WHERE city = 'Los Angeles'));
+
+/*Q3) The customer with the driving license W045654959 changed his/her drop off location to 1001 Henderson St, 
+Fort Worth, TX, zip - 76102  and wants to extend the rental upto 4 more days. Update the record. */
+
+SET SQL_SAFE_UPDATES = 0;
+UPDATE rental SET 
+end_date = (SELECT DATE_ADD(end_date,INTERVAL 4 DAY) WHERE (SELECT id FROM customer WHERE driver_license_number = 'W045654959')),
+drop_off_location_id = (SELECT id FROM location WHERE city = 'Fort Worth');
+
+/*Q4) Fetch all rental details with their equipment type.*/
+
+SELECT 
+rental.id,rental.start_date,rental.end_date,rental.customer_id,
+rental.vehicle_type_id,rental.fuel_option_id, rental.pickup_location_id,rental.drop_off_location_id,
+equipment_type.`name` AS equipment_type
+FROM rental
+LEFT JOIN rental_has_equipment_type ON rental_has_equipment_type.rental_id = rental.id
+INNER JOIN equipment_type ON equipment_type.id = rental_has_equipment_type.equipment_type_id;
+
+/* Q5) Fetch all details of vehicles. */
+
+SELECT 
+vehicle.id,vehicle.brand, vehicle.model, vehicle.model_year,vehicle.mileage,vehicle.color,vehicle.vehicle_type_id,
+vehicle.current_location_id,vehicle_type.name AS vehicle_type_name,
+CONCAT(street_address, ' ',city, ' ', state, ' ', zipcode) AS Location
+FROM
+vehicle
+INNER JOIN vehicle_type ON vehicle_type.id = vehicle.vehicle_type_id
+INNER JOIN location ON location.id = vehicle.current_location_id;
+
+/* Q6) Get driving license of the customer with most rental insurances.
+*/
+
+SELECT
+customer.id,
+customer.first_name, customer.last_name,
+customer.driver_license_number,
+count(rental_has_insurance.insurance_id) AS Total_Insurance
+FROM 
+customer
+INNER JOIN rental on rental.customer_id = customer.id
+INNER JOIN rental_has_insurance ON rental_has_insurance.rental_id = rental.id
+INNER JOIN insurance ON insurance.id = rental_has_insurance.insurance_id
+GROUP BY rental_has_insurance.rental_id
+ORDER BY Total_Insurance DESC LIMIT 1;
+
+-- Q7) Fetch rental invoice for customer (email: smacias3@amazonaws.com). 
+
+SELECT 
+rental_invoice.id,rental_invoice.car_rent, 
+rental_invoice.equipment_rent_total,
+rental_invoice.insurance_cost_total,
+rental_invoice.tax_surcharges_and_fees,
+rental_invoice.total_amount_payable,
+rental_invoice.discount_amount,
+rental_invoice.net_amount_payable
+FROM 
+customer
+INNER JOIN rental ON rental.customer_id = customer.id
+INNER JOIN rental_invoice ON rental_invoice.rental_id = rental.id
+WHERE customer.email = 'smacias3@amazonaws.com';
+
+-- Q8) Which rental has the most number of equipment.
+
+SELECT 
+rental.id,
+COUNT(vehicle_has_equiment.equipment_id) AS Total_Equipment
+FROM 
+rental
+INNER JOIN vehicle_type ON vehicle_type.id = rental.vehicle_type_id
+INNER JOIN vehicle ON vehicle.vehicle_type_id = vehicle_type.id
+INNER JOIN vehicle_has_equiment ON vehicle_has_equiment.vehicle_id = vehicle.id
+GROUP BY vehicle_has_equiment.vehicle_id
+ORDER BY Total_Equipment DESC LIMIT 1;
+
+-- Q9) Remove equipment_type :Satellite Radio from rental started on 2018-07-14 and ended on 2018-07-23.
+
+DELETE FROM rental_has_equipment_type WHERE
+rental_has_equipment_type.rental_id = (SELECT id FROM rental WHERE start_date = '2018-07-14' AND end_date = '2018-07-23')
+AND 
+rental_has_equipment_type.equipment_type_id = (SELECT id FROM equipment_type WHERE `name` = 'Satellite Radio');
+
+-- 10) Increase the  cost of all rental insurances except Cover The Car (LDW) by twice the current cost.
+
+UPDATE insurance SET 
+cost = (cost * 2) where name  != ('Cover The Car (LDW)');
+
+
+-- 11) Calculated the total sum of all insurance costs of all rentals.
+
+SELECT 
+SUM(insurance.cost)
+FROM 
+rental_has_insurance
+INNER JOIN insurance ON insurance.id = rental_has_insurance.insurance_id;
