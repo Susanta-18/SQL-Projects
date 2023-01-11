@@ -10,3 +10,8 @@ While your end users will focus on the already extracted tables, it would be a g
 # Project 2 - Company Sales Analysis
 
 MySQL data analysis project in helping company to perform data analysis for user behaviours, find actionable customer/business insights, measure and track marketing efforts etc.
+
+# Project 3 - Car Rentals Analysis
+
+Car rental agencies primarily serve people who require a temporary vehicle, for example, those who do not own their own car, travelers who are out of town, or owners of damaged or destroyed vehicles who are awaiting repair or insurance compensation.
+This MySQL project focused on helping car rental company to perform data analysis to find actionable business insights.
