@@ -23,7 +23,7 @@ to tie website activity back to specific traffic sources and campaigns
 
 -- *******************************************
 -- BUSINESS CONCEPT: Website Measurement & Testing
--- *******************************************
+-- ****************************************
 
 /*Website content analysis is about understanding which pages are seen the most by your users, 
 to identify where to focus on improving your business */
