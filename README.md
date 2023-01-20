@@ -15,3 +15,12 @@ MySQL data analysis project in helping company to perform data analysis for user
 
 Car rental agencies primarily serve people who require a temporary vehicle, for example, those who do not own their own car, travelers who are out of town, or owners of damaged or destroyed vehicles who are awaiting repair or insurance compensation.
 This MySQL project focused on helping car rental company to perform data analysis to find actionable business insights.
+
+# Project 4 - Car Rentals Analysis (Ongoing)
+As a member of the startup team, you will work with the CEO, the Head of Marketing, and the Website Manager to help steer the business.
+You will analyze and optimize marketing channels, measure and test website conversion performance, and use data to understand the impact of new product launches.
+- Identify top traffic sources, measure their conversion rates, analyze trends, and use segmentation for bidding optimization
+- Find the most-visited pages and top entry pages, calculate bounce rates, build conversion funnels, and analyze tests
+- Compare marketing channels, understand relative performance, optimize a channel portfolio, and analyze trends
+- Analyze sales, build product-level conversion funnels, learn about cross-selling, and measure the impact of launching new products
+- Learn about behaviors of repeat visitors and purchasers, and compare new and repeat visitor website conversion patterns
