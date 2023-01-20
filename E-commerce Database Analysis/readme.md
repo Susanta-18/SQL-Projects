@@ -19,3 +19,11 @@ to tie website activity back to specific traffic sources and campaigns
 • Analyzing search data and shifting budget towards the engines, campaigns or keywords driving the strongest conversion rates
 • Comparing user behavior patterns across traffic sources to inform creative and messaging strategy
 • Identifying opportunities to eliminate wasted spend or scale high-converting traffic */
+
+
+-- *******************************************
+-- BUSINESS CONCEPT: Website Measurement & Testing
+-- *******************************************
+
+/*Website content analysis is about understanding which pages are seen the most by your users, 
+to identify where to focus on improving your business */
