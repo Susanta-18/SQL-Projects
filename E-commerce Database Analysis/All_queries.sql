@@ -307,3 +307,208 @@ LEFT JOIN bounced_sessions_3 ON
 bounced_sessions_3.website_session_id = session_w_first_webpv_1.website_session_id
 GROUP BY 
 session_w_first_webpv_1.pageview_url;
+
+/* Massage from Website Manager on August 31, 2012
+Hi there,
+Could you pull the volume of paid search nonbrand traffic landing on /home and /lander-1, 
+trended weekly since June 1st? I want to confirm the traffic is all routed correctly.
+Could you also pull our overall paid search bounce rate trended weekly? 
+I want to make sure the lander change has improved the overall picture.
+Thanks!
+ */
+
+-- STEP 1: Finding the first website_pageview_id for relevant session
+-- STEP 2: identifying the landing page for each session
+-- STEP 3: counting page view for each session to identify "bounces"
+-- STEP 4: summarizing by counting total session and bounced sessions 
+
+CREATE TEMPORARY TABLE session_w_firstwpv_and_totalpv
+SELECT 
+website_sessions.website_session_id,
+MIN(website_pageviews.website_pageview_id) first_webpv_id,
+COUNT(website_pageviews.website_pageview_id) AS total_pv
+FROM 
+website_sessions
+LEFT JOIN website_pageviews 
+ON website_pageviews.website_session_id = website_sessions.website_session_id
+WHERE website_sessions.created_at > '2012-06-01' 
+AND website_sessions.created_at < '2012-08-31'
+AND website_sessions.utm_source = 'gsearch'
+AND website_sessions.utm_campaign = 'nonbrand'
+GROUP BY 
+website_sessions.website_session_id;
+
+SELECT * FROM session_w_firstwpv_and_totalpv;
+
+CREATE TEMPORARY TABLE session_w_landingpage
+SELECT 
+session_w_firstwpv_and_totalpv.website_session_id,
+session_w_firstwpv_and_totalpv.first_webpv_id,
+session_w_firstwpv_and_totalpv.total_pv,
+website_pageviews.pageview_url AS landing_page,
+website_pageviews.created_at AS session_created_at
+FROM 
+session_w_firstwpv_and_totalpv
+LEFT JOIN website_pageviews ON
+website_pageviews.website_pageview_id = session_w_firstwpv_and_totalpv.first_webpv_id;
+
+SELECT * FROM session_w_landingpage;
+
+SELECT
+MIN(DATE(session_created_at)) AS week_start_date,
+COUNT(DISTINCT website_session_id) AS total_session,
+COUNT(DISTINCT CASE WHEN total_pv = 1 THEN website_session_id ELSE NULL END) AS bounced_session,
+COUNT(DISTINCT CASE WHEN total_pv = 1 THEN website_session_id ELSE NULL END)/ COUNT(DISTINCT website_session_id) AS bounced_rate,
+COUNT(DISTINCT CASE WHEN landing_page = '/home' THEN website_session_id ELSE NULL END) AS home_session,
+COUNT(DISTINCT CASE WHEN landing_page = '/lander-1' THEN website_session_id ELSE NULL END) AS lander_session
+FROM 
+session_w_landingpage
+GROUP BY 
+YEARWEEK(session_created_at);
+
+
+/* Massage from Website Manager on Sept 5, 2012
+Hi there!
+I’d like to understand where we lose our gsearch visitors between the new /lander-1 page and placing an order. 
+Can you build us a full conversion funnel, analyzing how many customers make it to each step?
+Start with /lander-1 and build the funnel all the way to our
+thank you page. Please use data since August 5th.
+
+Thanks!
+-Morgan
+ */ 
+ 
+ SELECT 
+ website_sessions.website_session_id,
+ website_pageviews.pageview_url,
+ website_pageviews.created_at,
+ (CASE WHEN website_pageviews.pageview_url = '/lander-1' THEN 1 ELSE 0 END) AS lander_page,
+ (CASE WHEN website_pageviews.pageview_url = '/products' THEN 1 ELSE 0 END) AS products_page,
+ (CASE WHEN website_pageviews.pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END) AS mr_fuzzy_page,
+ (CASE WHEN website_pageviews.pageview_url = '/cart' THEN 1 ELSE 0 END) AS cart_page,
+ (CASE WHEN website_pageviews.pageview_url = '/shipping' THEN 1 ELSE 0 END) AS shipping_page,
+ (CASE WHEN website_pageviews.pageview_url = '/billing' THEN 1 ELSE 0 END) AS billing_page,
+ (CASE WHEN website_pageviews.pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END) AS thankyou_page
+ FROM 
+ website_sessions
+	LEFT JOIN website_pageviews 
+		ON website_pageviews.website_session_id = website_sessions.website_session_id
+			WHERE website_sessions.created_at > '2012-08-05'
+			AND website_sessions.created_at < '2012-09-05'
+			AND website_sessions.utm_source = 'gsearch'
+			AND website_sessions.utm_campaign = 'nonbrand'
+			AND website_pageviews.pageview_url IN 
+			('/lander-1', '/products', '/the-original-mr-fuzzy', '/cart','/shipping','/billing','/thank-you-for-your-order')
+ ORDER BY
+	website_sessions.website_session_id;
+    
+CREATE TEMPORARY TABLE lander_1_funnels
+SELECT 
+website_session_id,
+MAX(lander_page) AS lander_page,
+MAX(products_page) AS products_page,
+MAX(mr_fuzzy_page) AS mr_fuzzy_page,
+MAX(cart_page) AS cart_page,
+MAX(shipping_page) AS shipping_page,
+MAX(billing_page) AS billing_page,
+MAX(thankyou_page) AS thankyou_page
+FROM
+( SELECT 
+ website_sessions.website_session_id,
+ website_pageviews.pageview_url,
+ website_pageviews.created_at,
+ (CASE WHEN website_pageviews.pageview_url = '/lander-1' THEN 1 ELSE 0 END) AS lander_page,
+ (CASE WHEN website_pageviews.pageview_url = '/products' THEN 1 ELSE 0 END) AS products_page,
+ (CASE WHEN website_pageviews.pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END) AS mr_fuzzy_page,
+ (CASE WHEN website_pageviews.pageview_url = '/cart' THEN 1 ELSE 0 END) AS cart_page,
+ (CASE WHEN website_pageviews.pageview_url = '/shipping' THEN 1 ELSE 0 END) AS shipping_page,
+ (CASE WHEN website_pageviews.pageview_url = '/billing' THEN 1 ELSE 0 END) AS billing_page,
+ (CASE WHEN website_pageviews.pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END) AS thankyou_page
+ FROM 
+ website_sessions
+	LEFT JOIN website_pageviews 
+		ON website_pageviews.website_session_id = website_sessions.website_session_id
+			WHERE website_sessions.created_at > '2012-08-05'
+			AND website_sessions.created_at < '2012-09-05'
+			AND website_sessions.utm_source = 'gsearch'
+			AND website_sessions.utm_campaign = 'nonbrand'
+			AND website_pageviews.pageview_url IN 
+			('/lander-1', '/products', '/the-original-mr-fuzzy', '/cart','/shipping','/billing','/thank-you-for-your-order')
+ ORDER BY
+	website_sessions.website_session_id
+) AS pageview_lavel
+GROUP BY 
+website_session_id;
+
+SELECT * FROM lander_1_funnels;
+
+SELECT
+COUNT(DISTINCT website_session_id) AS total_session,
+-- COUNT(DISTINCT CASE WHEN lander_page = 1 THEN website_session_id ELSE NULL END) AS lander_page ,
+COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END) AS products_page ,
+COUNT(DISTINCT CASE WHEN mr_fuzzy_page=1 THEN website_session_id ELSE NULL END ) AS mr_fuzzy_page ,
+COUNT(DISTINCT CASE WHEN cart_page=1 THEN website_session_id ELSE NULL END)AS cart_page,
+COUNT( DISTINCT CASE WHEN shipping_page=1 THEN website_session_id ELSE NULL END) AS shipping_page,
+COUNT(DISTINCT CASE WHEN billing_page= 1 THEN website_session_id ELSE NULL END) AS billing_page ,
+COUNT(DISTINCT CASE WHEN thankyou_page=1 THEN website_session_id ELSE NULL END) AS thankyou_page
+FROM lander_1_funnels;
+
+
+SELECT
+	COUNT(DISTINCT website_session_id) AS total_session,
+	COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END)/
+	COUNT(DISTINCT website_session_id) 
+    AS clickedto_products_page ,
+	COUNT(DISTINCT CASE WHEN mr_fuzzy_page=1 THEN website_session_id ELSE NULL END )/
+	COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END) 
+    AS clickedto_mr_fuzzy_page ,
+	COUNT(DISTINCT CASE WHEN cart_page=1 THEN website_session_id ELSE NULL END)/
+	COUNT(DISTINCT CASE WHEN mr_fuzzy_page=1 THEN website_session_id ELSE NULL END ) 
+    AS clickedto_cart_page,
+	COUNT( DISTINCT CASE WHEN shipping_page=1 THEN website_session_id ELSE NULL END)/
+	COUNT(DISTINCT CASE WHEN cart_page=1 THEN website_session_id ELSE NULL END) 
+    AS clickedto_shipping_page,
+	COUNT(DISTINCT CASE WHEN billing_page= 1 THEN website_session_id ELSE NULL END)/
+	COUNT( DISTINCT CASE WHEN shipping_page=1 THEN website_session_id ELSE NULL END)
+    AS clickedto_billing_page ,
+	COUNT(DISTINCT CASE WHEN thankyou_page=1 THEN website_session_id ELSE NULL END)/
+	COUNT(DISTINCT CASE WHEN billing_page= 1 THEN website_session_id ELSE NULL END) 
+    AS clickedto_thankyou_page
+FROM lander_1_funnels;
+
+/*Massage from Website Manager on Nov 10, 2012
+Hello!
+We tested an updated billing page based on your funnel analysis. 
+Can you take a look and see whether /billing-2 is doing any better than the original /billing page?
+We’re wondering what % of sessions on those pages end up placing an order. 
+FYI – we ran this test for all traffic, not just for our search visitors.
+
+Thanks!
+-Morgan
+ */ 
+
+SELECT
+website_pageview_id,
+MIN(created_at)
+FROM 
+website_pageviews
+WHERE pageview_url = '/billing-2';
+
+SELECT
+pageview_url AS page_url,
+COUNT(DISTINCT website_session_id) AS sessions,
+COUNT(DISTINCT order_id) AS total_orders,
+COUNT(DISTINCT order_id) / COUNT(DISTINCT website_session_id) AS bill_to_order_percentage
+FROM(
+SELECT
+website_pageviews.website_session_id,
+website_pageviews.pageview_url,
+orders.order_id
+FROM
+website_pageviews
+LEFT JOIN orders ON orders.website_session_id = website_pageviews.website_session_id
+WHERE website_pageviews.created_at < '2012-11-10'
+AND website_pageviews.website_pageview_id >= 53550
+AND website_pageviews.pageview_url IN ('/billing', '/billing-2')) AS billing_session_w_orders
+GROUP BY 
+pageview_url;
