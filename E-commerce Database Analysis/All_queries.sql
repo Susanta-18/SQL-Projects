@@ -678,3 +678,169 @@ FROM
 order_table
 GROUP BY
 1;
+
+
+/* Massage from CEO on Nov 27, 2012
+Good morning,
+I need some help preparing a presentation for the board meeting next week.
+The board would like to have a better understanding of our growth story over our first 8 months. 
+This will also be a good excuse to show off our analytical capabilities a bit.
+-Cindy
+*/
+
+/*Gsearch seems to be the biggest driver of our business. Could you pull monthly trends for gsearch sessions
+and orders so that we can showcase the growth there?
+ */
+
+SELECT 
+YEAR(website_sessions.created_at) AS `year`,
+MONTH(website_sessions.created_at) AS `month`,
+COUNT(website_sessions.website_session_id) AS sessions,
+COUNT(orders.order_id) AS orders,
+COUNT(orders.order_id) / COUNT(website_sessions.website_session_id) AS CVR
+FROM 
+website_sessions
+	LEFT JOIN orders ON orders.website_session_id = website_sessions.website_session_id
+    WHERE website_sessions.utm_source = 'gsearch'
+    AND website_sessions.created_at < '2012-11-27'
+GROUP BY 
+	1,2;
+
+
+/*Next, it would be great to see a similar monthly trend for Gsearch, but this time splitting out nonbrand and brand campaigns separately. 
+I am wondering if brand is picking up at all. If so, this is a good story to tell. */
+
+SELECT 
+YEAR(website_sessions.created_at) AS `year`,
+MONTH(website_sessions.created_at) AS `month`,
+COUNT(website_sessions.website_session_id) AS total_sessions,
+COUNT(CASE WHEN website_sessions.utm_campaign = 'brand' THEN website_sessions.website_session_id ELSE NULL END) AS brand_sessions,
+COUNT(CASE WHEN website_sessions.utm_campaign = 'nonbrand' THEN website_sessions.website_session_id ELSE NULL END) AS nonbrand_sessions,
+COUNT(orders.order_id) AS total_orders,
+COUNT(CASE WHEN website_sessions.utm_campaign = 'brand' THEN orders.order_id ELSE NULL END) AS brand_orders,
+COUNT(CASE WHEN website_sessions.utm_campaign = 'nonbrand' THEN orders.order_id ELSE NULL END) AS nonbrand_orders
+FROM 
+website_sessions
+	LEFT JOIN orders ON orders.website_session_id = website_sessions.website_session_id
+    WHERE website_sessions.utm_source = 'gsearch'
+    -- AND website_sessions.utm_campaign IN ('brand','nonbrand')
+    AND website_sessions.created_at < '2012-11-27'
+GROUP BY 
+	1,2;
+    
+    
+/* While we’re on Gsearch, could you dive into nonbrand, and pull monthly sessions and orders split by device
+type? I want to flex our analytical muscles a little and show the board we really know our traffic sources.
+*/ 
+
+SELECT 
+YEAR(website_sessions.created_at) AS `year`,
+MONTH(website_sessions.created_at) AS `month`,
+COUNT(website_sessions.website_session_id) AS total_nonbrand_sessions,
+COUNT(CASE WHEN website_sessions.device_type = 'mobile' THEN website_sessions.website_session_id ELSE NULL END) AS M_sessions,
+COUNT(CASE WHEN website_sessions.device_type = 'desktop' THEN website_sessions.website_session_id ELSE NULL END) AS D_sessions,
+COUNT(CASE WHEN website_sessions.utm_campaign = 'nonbrand' THEN orders.order_id ELSE NULL END) AS total_nonbrand_orders,
+COUNT(CASE WHEN website_sessions.device_type = 'mobile' THEN orders.order_id ELSE NULL END) AS M_orders,
+COUNT(CASE WHEN website_sessions.device_type = 'desktop' THEN orders.order_id ELSE NULL END) AS D_orders
+FROM 
+website_sessions
+	LEFT JOIN orders ON orders.website_session_id = website_sessions.website_session_id
+    WHERE website_sessions.utm_source = 'gsearch'
+    AND website_sessions.utm_campaign IN ('nonbrand')
+    AND website_sessions.created_at < '2012-11-27'
+GROUP BY 
+	1,2;
+	
+
+/*I’m worried that one of our more pessimistic board members may be concerned about the large % of traffic from
+Gsearch. Can you pull monthly trends for Gsearch, alongside monthly trends for each of our other channels?
+ */
+ 
+SELECT 
+YEAR(website_sessions.created_at) AS `year`,
+MONTH(website_sessions.created_at) AS `month`,
+COUNT( DISTINCT website_sessions.website_session_id) AS total_sessions,
+COUNT(CASE WHEN website_sessions.utm_source = 'gsearch' THEN website_sessions.website_session_id ELSE NULL END) AS gsearch_sessions,
+COUNT(CASE WHEN website_sessions.utm_source = 'bsearch' THEN website_sessions.website_session_id ELSE NULL END) AS bsearch_sessions,
+COUNT(CASE WHEN website_sessions.utm_source IS NULL AND http_referer IS NOT NULL THEN website_sessions.website_session_id ELSE NULL END) AS organic_sessions,
+COUNT(CASE WHEN website_sessions.utm_source IS NULL AND http_referer IS NULL THEN website_sessions.website_session_id ELSE NULL END) AS direct_sessions
+FROM 
+website_sessions
+WHERE website_sessions.created_at < '2012-11-27'
+GROUP BY
+1,2;
+
+/*I’d like to tell the story of our website performance improvements over the course of the first 8 months.
+Could you pull session to order conversion rates, by month?
+ */
+
+SELECT 
+YEAR(website_sessions.created_at) AS `year`,
+MONTH(website_sessions.created_at) AS `months`,
+COUNT(DISTINCT website_sessions.website_session_id) AS sessions,
+COUNT(DISTINCT orders.order_id) AS orders,
+COUNT(DISTINCT orders.order_id)/COUNT(DISTINCT website_sessions.website_session_id) AS CVR
+FROM 
+website_sessions
+LEFT JOIN orders ON orders.website_session_id = website_sessions.website_session_id
+WHERE website_sessions.created_at < '2012-11-27'
+GROUP BY
+1,2;
+
+/*For the gsearch lander test, please estimate the revenue that test earned us 
+(Hint: Look at the increase in CVR from the test (Jun 19 – Jul 28), and 
+use nonbrand sessions and revenue since then to calculate incremental value) */
+
+SELECT 
+MIN(website_pageview_id)
+FROM website_pageviews
+WHERE pageview_url = '/lander-1'; -- 23504
+
+CREATE TEMPORARY TABLE first_pvid
+SELECT 
+website_sessions.website_session_id,
+MIN(website_pageviews.website_pageview_id) AS first_landing_page_id
+FROM 
+website_pageviews
+INNER JOIN website_sessions ON website_sessions.website_session_id = website_pageviews.website_session_id
+WHERE 
+website_sessions.created_at < '2012-7-28'
+AND website_pageviews.website_pageview_id >= 23504
+AND website_sessions.utm_source = 'gsearch'
+AND website_sessions.utm_campaign = 'nonbrand'
+GROUP BY
+website_sessions.website_session_id;
+
+SELECT * FROM first_pvid;
+
+CREATE TEMPORARY TABLE first_pvurl
+SELECT 
+first_pvid.website_session_id,
+website_pageviews.pageview_url
+FROM
+first_pvid
+LEFT JOIN website_pageviews ON website_pageviews.website_session_id = first_pvid.website_session_id
+WHERE website_pageviews.pageview_url IN ('/home','/lander-1');
+
+SELECT * FROM first_pvurl;
+
+CREATE TEMPORARY TABLE 	order_table
+SELECT 
+first_pvurl.website_session_id,
+first_pvurl.pageview_url,
+orders.order_id
+FROM 
+first_pvurl
+LEFT JOIN orders ON orders.website_session_id = first_pvurl.website_session_id;
+
+SELECT * FROM order_table;
+
+SELECT 
+pageview_url,
+COUNT(DISTINCT website_session_id) AS sessions,
+COUNT(DISTINCT order_id) AS orders,
+COUNT(DISTINCT order_id)/COUNT(DISTINCT website_session_id) AS CVR
+FROM
+order_table
+GROUP BY
+1;
