@@ -844,3 +844,116 @@ FROM
 order_table
 GROUP BY
 1;
+
+/*For the landing page test you analyzed previously, it would be great to show a full conversion funnel from each of the two pages to orders. 
+You can use the same time period you analyzed last time (Jun 19 – Jul 28). */
+
+CREATE TEMPORARY TABLE session_flag
+SELECT 
+website_session_id,
+MAX(Home_page) AS saw_homepage,
+MAX(lander_page) AS saw_landerpage,
+MAX(products_page) AS products_page,
+MAX(fuzzy_page) AS fuzzy_page,
+MAX(cart_page) AS cart_page,
+MAX(shipping_page) AS shipping_page,
+MAX(billing_page) AS billing_page,
+MAX(thanks_page) AS thankyou
+FROM(
+SELECT
+website_sessions.website_session_id,
+website_pageviews.pageview_url,
+	CASE WHEN website_pageviews.pageview_url = '/home' THEN 1 ELSE 0 END AS Home_page,
+   	CASE WHEN website_pageviews.pageview_url = '/lander-1' THEN 1 ELSE 0 END AS lander_page,
+	CASE WHEN website_pageviews.pageview_url = '/products' THEN 1 ELSE 0 END AS products_page,
+    	CASE WHEN website_pageviews.pageview_url = '/the-original-mr-fuzzy' THEN 1 ELSE 0 END AS fuzzy_page,
+	CASE WHEN website_pageviews.pageview_url = '/cart' THEN 1 ELSE 0 END AS cart_page,
+    	CASE WHEN website_pageviews.pageview_url = '/shipping' THEN 1 ELSE 0 END AS shipping_page,
+    	CASE WHEN website_pageviews.pageview_url = '/billing' THEN 1 ELSE 0 END AS billing_page,
+    	CASE WHEN website_pageviews.pageview_url = '/thank-you-for-your-order' THEN 1 ELSE 0 END AS thanks_page  
+FROM 
+website_sessions
+	LEFT JOIN website_pageviews ON website_pageviews.website_session_id = website_sessions.website_session_id
+    	WHERE website_sessions.created_at <= '2012-07-28' AND website_sessions.created_at >= '2012-06-19'
+    	AND website_sessions.utm_source = 'gsearch'
+	AND website_sessions.utm_campaign = 'nonbrand'
+ORDER BY
+	website_sessions.website_session_id,
+    	website_pageviews.created_at) AS pageview_levels
+GROUP BY 
+	website_session_id;
+    
+SELECT * FROM session_flag;
+
+
+SELECT 
+CASE 
+    WHEN saw_homepage = 1 THEN 'home_page'
+    WHEN saw_landerpage = 1 THEN 'lander_page'
+    ELSE 'CHECK LOGIC'
+    END AS segmnets,
+ COUNT(DISTINCT website_session_id) AS sessions,
+ COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END) AS PP,
+ COUNT(DISTINCT CASE WHEN fuzzy_page = 1 THEN website_session_id ELSE NULL END) AS FP,
+ COUNT(DISTINCT CASE WHEN cart_page = 1 THEN website_session_id ELSE NULL END) AS CP,
+ COUNT(DISTINCT CASE WHEN shipping_page = 1 THEN website_session_id ELSE NULL END) AS SP,
+ COUNT(DISTINCT CASE WHEN billing_page = 1 THEN website_session_id ELSE NULL END) AS BP,
+ COUNT(DISTINCT CASE WHEN thankyou = 1 THEN website_session_id ELSE NULL END) AS TP
+FROM
+	session_flag
+GROUP BY
+	1;
+    
+    
+SELECT 
+CASE 
+    WHEN saw_homepage = 1 THEN 'home_page'
+    WHEN saw_landerpage = 1 THEN 'lander_page'
+    ELSE 'CHECK LOGIC'
+    END AS segmnets,
+    COUNT(DISTINCT website_session_id) AS sessions,
+    COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END) / COUNT(DISTINCT website_session_id) AS PP_CVR, -- CVR = conversion rate
+    COUNT(DISTINCT CASE WHEN fuzzy_page = 1 THEN website_session_id ELSE NULL END)/COUNT(DISTINCT CASE WHEN products_page = 1 THEN website_session_id ELSE NULL END) AS FP_CVR,
+    COUNT(DISTINCT CASE WHEN cart_page = 1 THEN website_session_id ELSE NULL END)/COUNT(DISTINCT CASE WHEN fuzzy_page = 1 THEN website_session_id ELSE NULL END) AS CP_CVR,
+    COUNT(DISTINCT CASE WHEN shipping_page = 1 THEN website_session_id ELSE NULL END)/COUNT(DISTINCT CASE WHEN cart_page = 1 THEN website_session_id ELSE NULL END) AS SP_CVR,
+    COUNT(DISTINCT CASE WHEN billing_page = 1 THEN website_session_id ELSE NULL END)/COUNT(DISTINCT CASE WHEN shipping_page = 1 THEN website_session_id ELSE NULL END) AS BP_CVR,
+    COUNT(DISTINCT CASE WHEN thankyou = 1 THEN website_session_id ELSE NULL END)/COUNT(DISTINCT CASE WHEN billing_page = 1 THEN website_session_id ELSE NULL END) AS TP_CVR
+FROM
+	session_flag
+GROUP BY
+	1;
+    
+/*I’d love for you to quantify the impact of our billing test, as well. Please analyze the lift generated from the test (Sep 10 – Nov 10), 
+in terms of revenue per billing page session, and then pull the number of billing page sessions for the past month to understand monthly impact.*/ 
+
+SELECT
+pageview_url,
+COUNT(DISTINCT website_session_id) AS sessions,
+SUM(price_usd)/COUNT(DISTINCT website_session_id) AS revenue_per_billing_page
+FROM (
+SELECT
+website_pageviews.website_session_id,
+website_pageviews.pageview_url,
+orders.order_id,
+orders.price_usd
+FROM 
+website_pageviews
+LEFT JOIN orders ON orders.website_session_id = website_pageviews.website_session_id
+WHERE 
+website_pageviews.created_at >= '2012-09-10' AND website_pageviews.created_at <= '2012-11-10'
+AND website_pageviews.pageview_url IN ('/billing', '/billing-2')) AS billing_session
+GROUP BY
+1;
+-- billing page total session = 657 and revenue per billing page is 22.826
+-- billing-2 page total session 654 and revenue per billing page is 31.339
+-- lift generated 8.51
+
+SELECT
+COUNT(website_pageviews.website_session_id) AS total_sessions
+FROM 
+website_pageviews
+WHERE 
+website_pageviews.created_at >= '2012-10-27' AND website_pageviews.created_at <= '2012-11-27'
+AND website_pageviews.pageview_url IN ('/billing', '/billing-2'); -- 1193 total session last month
+
+-- lift generated (8.51 X 1193) = 10152.43 
